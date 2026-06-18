@@ -14,7 +14,7 @@ app = FastAPI(title=settings.APP_NAME, version="1.0.0")
 # Setup CORS middleware for local dev cross-origin requests
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://green-mind-ai-ajlz.vercel.app/"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

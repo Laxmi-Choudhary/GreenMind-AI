@@ -1,4 +1,4 @@
-const API_URL = 'https://greenmind-ai-1.onrender.com';
+const API_URL = 'http://localhost:8000';
 
 const request = async (endpoint, options = {}) => {
   const token = localStorage.getItem('greenmind_token');

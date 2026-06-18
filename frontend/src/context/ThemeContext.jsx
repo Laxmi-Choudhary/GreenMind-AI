@@ -8,7 +8,7 @@ export const ThemeProvider = ({ children }) => {
   useEffect(() => {
     const root = window.document.documentElement;
     const body = window.document.body;
-    
+
     if (theme === 'dark') {
       root.classList.add('dark');
       body.classList.add('dark');
