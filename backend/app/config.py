@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 1 day
 
     # Database Settings
-    MONGODB_URI: str = os.getenv("MONGODB_URI", "mongodb+srv://laxmi:<db_password>@cluster0.f6keeyj.mongodb.net/?appName=Cluster0")
+    MONGODB_URI: str = "mongodb+srv://laxmi:9323624053@cluster0.f6keeyj.mongodb.net/?appName=Cluster0"
     DATABASE_NAME: str = "greenmind"
     SQLITE_DB_PATH: str = "greenmind_fallback.db"
 
