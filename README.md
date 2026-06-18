@@ -103,11 +103,6 @@ Provides:
 * Sustainability Tips
 * Cost Saving Recommendations
 
-Example:
-
-> Transportation contributes 42% of your carbon footprint. Using public transport twice a week could reduce approximately 30kg CO₂ emissions monthly.
-
----
 
 ## 💬 AI Sustainability Assistant
 
@@ -155,21 +150,6 @@ Displays:
 
 Interactive sustainability scenario testing.
 
-Examples:
-
-* Use public transportation
-* Reduce AC usage
-* Switch to vegetarian meals
-* Reduce online shopping
-
-Instantly calculates:
-
-* Carbon Reduction
-* Annual Impact
-* Eco Score Improvement
-
----
-
 ## 🏆 Eco Score
 
 AI-generated sustainability score out of 100.
@@ -201,21 +181,7 @@ Challenges include:
 * Save Electricity
 * Sustainable Shopping
 
-Rewards:
 
-* Points
-* Achievement Badges
-* Sustainability Levels
-
-Example Badges:
-
-* Green Beginner
-* Eco Warrior
-* Carbon Crusher
-* Planet Protector
-* Climate Champion
-
----
 
 ## 📊 Analytics Dashboard
 
