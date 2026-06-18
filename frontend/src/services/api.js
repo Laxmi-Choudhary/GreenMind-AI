@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:8000';
+const API_URL = 'https://greenmind-ai-1.onrender.com';
 
 const request = async (endpoint, options = {}) => {
   const token = localStorage.getItem('greenmind_token');
@@ -6,23 +6,23 @@ const request = async (endpoint, options = {}) => {
     'Content-Type': 'application/json',
     ...options.headers,
   };
-  
+
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
-  
+
   const response = await fetch(`${API_URL}${endpoint}`, {
     ...options,
     headers,
   });
-  
+
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     const error = new Error(errorData.detail || 'An unexpected error occurred.');
     error.status = response.status;
     throw error;
   }
-  
+
   const contentType = response.headers.get('content-type');
   if (contentType && contentType.includes('application/json')) {
     return response.json();
