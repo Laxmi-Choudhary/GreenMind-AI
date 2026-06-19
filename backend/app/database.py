@@ -15,6 +15,12 @@ class DatabaseManager:
         self.sqlite_conn = None
 
     async def connect(self):
+        if not settings.MONGODB_URI:
+            logger.info("No MongoDB URI configured. Using local SQLite fallback.")
+            self.is_mongodb = False
+            self._init_sqlite()
+            return
+
         try:
             logger.info(f"Attempting to connect to MongoDB at {settings.MONGODB_URI}...")
             self.client = AsyncIOMotorClient(settings.MONGODB_URI, serverSelectionTimeoutMS=2000)

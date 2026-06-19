@@ -9,6 +9,8 @@ from app.features.prediction_engine.routes import router as prediction_router
 from app.features.receipt_analyzer.routes import router as receipt_router
 from app.features.bill_analyzer.routes import router as bill_router
 from app.features.recommendation_engine.routes import router as recommendation_router
+from app.features.sdg_dashboard.routes import router as sdg_router
+from app.features.leaderboard.routes import router as leaderboard_router
 from fastapi import Response
 
 # Setup logging
@@ -61,3 +63,5 @@ app.include_router(prediction_router)
 app.include_router(receipt_router)
 app.include_router(bill_router)
 app.include_router(recommendation_router)
+app.include_router(sdg_router)
+app.include_router(leaderboard_router)
