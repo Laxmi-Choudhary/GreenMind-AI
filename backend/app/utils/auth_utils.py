@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 from passlib.context import CryptContext
 from app.config import settings
+import uuid
 
 # Password hashing configuration
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -16,17 +17,22 @@ def verify_password(password: str, hashed_password: str) -> bool:
     except Exception:
         return False
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+def create_token(data: dict, token_type: str = "access") -> str:
+    """Create JWT token. token_type: 'access' or 'refresh'. Includes jti."""
     to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
+    jti = str(uuid.uuid4())
+    to_encode.update({"jti": jti, "type": token_type})
+
+    if token_type == "access":
         expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    else:
+        expire = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 
-def verify_access_token(token: str) -> Optional[dict]:
+def verify_token(token: str) -> Optional[dict]:
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         return payload
