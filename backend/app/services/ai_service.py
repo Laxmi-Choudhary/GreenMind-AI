@@ -99,29 +99,57 @@ class AIService:
         return self._get_mock_coach_insights(latest_log)
 
     # --- AI Chat Service ---
-    async def get_chat_response(self, user_message: str, chat_history: List[Dict[str, str]], latest_log: Optional[Dict[str, Any]]) -> str:
+    async def get_chat_response(self, user_message: str, chat_history: List[Dict[str, str]], latest_log: Optional[Dict[str, Any]], language: str = "en") -> str:
         log_context = ""
         if latest_log:
             log_context = f"\nUser's latest carbon footprint details: Total emissions: {latest_log.get('daily_emissions')} kg CO2. Breakdown: {json.dumps(latest_log.get('breakdown'))}"
-
-        prompt = f"""
+ 
+        language_directive = ""
+        if language and language.lower() not in ["en", "english"]:
+            language_directive = f"\nPlease answer in {language}."
+ 
+        prompt = SYSTEM_PROMPT + "\n\n"
+        prompt += f"""
         You are GreenMind AI, a friendly and knowledgeable sustainability coach.
         {log_context}
-        
+         
         Recent chat history:
         {json.dumps(chat_history[-5:])}
-        
-        User question: "{user_message}"
-        
+         
+        User question: \"{user_message}\"
+        {language_directive}
+         
         Provide a concise, engaging, and scientifically accurate response. Keep it within 3-4 paragraphs. If they ask about reducing their emissions, reference their specific footprint if available.
         """
-        
+ 
         response_text = await self._call_gemini(prompt)
         if response_text:
-            return response_text.strip()
-
+            response = response_text.strip()
+            return self._translate_text(response, language)
+ 
         # Fallback to rule-based chatbot
-        return self._get_mock_chat_response(user_message, latest_log)
+        return self._translate_text(self._get_mock_chat_response(user_message, latest_log), language)
+ 
+    def _translate_text(self, text: str, language: str) -> str:
+        if not language or language.lower() in ["en", "english"]:
+            return text
+ 
+        # Simple multilingual placeholder support for frontend demo.
+        translations = {
+            "es": "[ES]",
+            "spanish": "[ES]",
+            "fr": "[FR]",
+            "french": "[FR]",
+            "de": "[DE]",
+            "german": "[DE]",
+            "hi": "[HI]",
+            "hindi": "[HI]",
+            "pt": "[PT]",
+            "portuguese": "[PT]"
+        }
+        lang_key = language.lower()
+        prefix = translations.get(lang_key, f"[{language.upper()}]")
+        return f"{prefix} {text}"
 
     # --- Weekly Report Generator Service ---
     async def get_weekly_report(self, history: List[Dict[str, Any]], user_profile: Dict[str, Any]) -> Dict[str, Any]:

@@ -40,3 +40,26 @@ def test_recommendation_endpoint(client: TestClient):
     suggestions = response.json()["suggestions"]
     assert isinstance(suggestions, list)
     assert any("Replace incandescent bulbs" in item["title"] or "Shift heavy" in item["title"] for item in suggestions)
+
+
+def test_chat_endpoint_without_auth(client: TestClient):
+    response = client.post(
+        "/api/chat",
+        json={
+            "message": "Hello, can you help me reduce my carbon footprint?",
+            "history": [{"role": "user", "content": "Hi"}],
+            "language": "en",
+            "voice": False,
+        },
+    )
+    assert response.status_code == 200
+    assert "response" in response.json()
+    assert isinstance(response.json()["response"], str)
+
+
+def test_health_endpoint(client: TestClient):
+    response = client.get("/health")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "healthy"
+    assert data["database_type"] in ["MongoDB", "SQLite Fallback"]

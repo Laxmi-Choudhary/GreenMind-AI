@@ -1,6 +1,8 @@
 import logging
 from typing import Optional
 
+from app.config import settings
+
 try:
     import redis.asyncio as aioredis
 except Exception:
@@ -37,4 +39,4 @@ class RedisManager:
         except Exception:
             return False
 
-redis_manager = RedisManager()
+redis_manager = RedisManager(settings.REDIS_URL)

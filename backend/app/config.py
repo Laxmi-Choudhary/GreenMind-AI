@@ -1,8 +1,19 @@
 import os
 import secrets
 import logging
-from pydantic_settings import BaseSettings
 from typing import Optional
+from pydantic_settings import BaseSettings
+
+# Normalize common lowercase environment variable names to the uppercase keys used by the config model.
+_env_aliases = {
+    "redis_url": "REDIS_URL",
+    "mongodb_uri": "MONGODB_URI",
+    "gemini_api_key": "GEMINI_API_KEY",
+    "openai_api_key": "OPENAI_API_KEY",
+}
+for old_key, new_key in _env_aliases.items():
+    if old_key in os.environ and new_key not in os.environ:
+        os.environ[new_key] = os.environ[old_key]
 
 class Settings(BaseSettings):
     APP_NAME: str = "GreenMind AI"
