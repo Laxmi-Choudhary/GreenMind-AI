@@ -255,4 +255,36 @@ class DatabaseManager:
             reps.sort(key=lambda x: x.get("created_at", ""), reverse=True)
             return reps
 
+    # --- Refresh Tokens Helpers ---
+    async def save_refresh_token(self, user_id: str, jti: str, expires_at: str):
+        if self.is_mongodb:
+            await self.db.tokens.insert_one({"user_id": user_id, "jti": jti, "expires_at": expires_at})
+        else:
+            cursor = self.sqlite_conn.cursor()
+            cursor.execute("CREATE TABLE IF NOT EXISTS refresh_tokens (id TEXT PRIMARY KEY, user_id TEXT, jti TEXT, expires_at TEXT)")
+            token_id = jti
+            cursor.execute(
+                "INSERT OR REPLACE INTO refresh_tokens (id, user_id, jti, expires_at) VALUES (?, ?, ?, ?)",
+                (token_id, user_id, jti, expires_at)
+            )
+            self.sqlite_conn.commit()
+
+    async def revoke_refresh_token(self, user_id: str, jti: str):
+        if self.is_mongodb:
+            await self.db.tokens.delete_one({"user_id": user_id, "jti": jti})
+        else:
+            cursor = self.sqlite_conn.cursor()
+            cursor.execute("DELETE FROM refresh_tokens WHERE user_id = ? AND jti = ?", (user_id, jti))
+            self.sqlite_conn.commit()
+
+    async def is_refresh_token_valid(self, user_id: str, jti: str) -> bool:
+        if self.is_mongodb:
+            doc = await self.db.tokens.find_one({"user_id": user_id, "jti": jti})
+            return doc is not None
+        else:
+            cursor = self.sqlite_conn.cursor()
+            cursor.execute("SELECT jti FROM refresh_tokens WHERE user_id = ? AND jti = ?", (user_id, jti))
+            row = cursor.fetchone()
+            return row is not None
+
 db_manager = DatabaseManager()
