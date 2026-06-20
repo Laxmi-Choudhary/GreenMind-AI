@@ -2,13 +2,13 @@ from app.middleware.auth_middleware import get_current_user
 
 
 def test_log_and_history(monkeypatch, client, sample_user):
-    # Override auth dependency to bypass HTTPBearer
     from app.main import app
-    app.dependency_overrides[get_current_user] = lambda: sample_user
-
-    # Mock db_manager methods
     from app import database
 
+    # Override authentication
+    app.dependency_overrides[get_current_user] = lambda: sample_user
+
+    # Mock database methods
     async def fake_add_footprint(data):
         return data
 
@@ -25,9 +25,23 @@ def test_log_and_history(monkeypatch, client, sample_user):
     async def fake_update_user(user_id, updates):
         return {**sample_user, **updates}
 
-    monkeypatch.setattr(database.db_manager, "add_footprint", fake_add_footprint)
-    monkeypatch.setattr(database.db_manager, "get_footprints_by_user", fake_get_footprints_by_user)
-    monkeypatch.setattr(database.db_manager, "update_user", fake_update_user)
+    monkeypatch.setattr(
+        database.db_manager,
+        "add_footprint",
+        fake_add_footprint
+    )
+
+    monkeypatch.setattr(
+        database.db_manager,
+        "get_footprints_by_user",
+        fake_get_footprints_by_user
+    )
+
+    monkeypatch.setattr(
+        database.db_manager,
+        "update_user",
+        fake_update_user
+    )
 
     payload = {
         "date": "2026-06-01",
@@ -42,14 +56,29 @@ def test_log_and_history(monkeypatch, client, sample_user):
         "waste_level": "medium"
     }
 
-    r = client.post("/api/calculator/log", json=payload)
-    assert r.status_code == 200
-    body = r.json()
+    # Test logging footprint
+    response = client.post(
+        "/api/calculator/log",
+        json=payload
+    )
+
+    assert response.status_code == 200
+
+    body = response.json()
+
     assert "log" in body
     assert "points_earned" in body
 
-    r2 = client.get("/api/calculator/history")
-    assert r2.status_code == 200
-    history = r2.json()
+    # Test history endpoint
+    response = client.get("/api/calculator/history")
+
+    assert response.status_code == 200
+
+    history = response.json()
+
     assert isinstance(history, list)
+    assert len(history) == 1
     assert history[0]["user_id"] == sample_user["id"]
+
+    # Cleanup dependency overrides
+    app.dependency_overrides.clear()
