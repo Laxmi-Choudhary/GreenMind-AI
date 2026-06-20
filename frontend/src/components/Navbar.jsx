@@ -1,66 +1,141 @@
-import React from 'react';
-import { useAuth } from '../context/AuthContext';
-import { useTheme } from '../context/ThemeContext';
-import { Sun, Moon, LogOut, Award, Trophy, User, Leaf, Menu } from 'lucide-react';
+// frontend/src/components/Navbar.jsx
 
-export const Navbar = ({ toggleSidebar }) => {
+import React, { memo, useState } from "react";
+import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
+
+import {
+  Sun,
+  Moon,
+  LogOut,
+  Award,
+  Trophy,
+  Leaf,
+  Menu,
+  User
+} from "lucide-react";
+
+const Navbar = ({ toggleSidebar }) => {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    try {
+      setLoggingOut(true);
+      await logout();
+    } catch (error) {
+      console.error("Logout failed:", error);
+    } finally {
+      setLoggingOut(false);
+    }
+  };
+
   return (
-    <header className="sticky top-0 z-40 w-full glass-panel shadow-sm px-4 py-3 flex items-center justify-between border-b border-slate-200/50 dark:border-slate-800/40">
-      <div className="flex items-center gap-3">
-        <button 
-          onClick={toggleSidebar}
-          className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 md:hidden transition-colors"
-          aria-label="Toggle sidebar"
-        >
-          <Menu className="w-6 h-6" />
-        </button>
-        <div className="flex items-center gap-2 text-brand-600 dark:text-brand-400 font-bold text-xl tracking-tight">
-          <Leaf className="w-6 h-6 animate-pulse-subtle" />
-          <span>GreenMind AI</span>
-        </div>
-      </div>
+    <header className="sticky top-0 z-40 w-full bg-white/80 dark:bg-slate-900/80 backdrop-blur-md shadow-sm border-b border-slate-200 dark:border-slate-800 px-4 py-3">
 
-      <div className="flex items-center gap-4">
-        {user && (
-          <div className="hidden sm:flex items-center gap-3 bg-brand-500/10 text-brand-700 dark:text-brand-300 px-3 py-1.5 rounded-full text-sm font-semibold border border-brand-500/20">
-            <Trophy className="w-4 h-4 text-amber-500" />
-            <span>Lvl {user.level}</span>
-            <span className="w-1.5 h-1.5 bg-brand-500 rounded-full"></span>
-            <Award className="w-4 h-4 text-emerald-500" />
-            <span>{user.points} pts</span>
-          </div>
-        )}
+      <div className="flex items-center justify-between">
 
-        <button
-          onClick={toggleTheme}
-          className="p-2 rounded-xl border border-slate-200/50 dark:border-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-all"
-          aria-label="Toggle dark mode"
-        >
-          {theme === 'dark' ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5" />}
-        </button>
+        {/* Left Section */}
+        <div className="flex items-center gap-3">
 
-        {user && (
+          <button
+            onClick={toggleSidebar}
+            className="md:hidden p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+            aria-label="Open sidebar"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+
           <div className="flex items-center gap-2">
-            <div className="hidden md:flex flex-col text-right">
-              <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{user.username}</span>
-              <span className="text-xs text-slate-500 dark:text-slate-400">{user.email}</span>
-            </div>
-            
-            <button
-              onClick={logout}
-              className="p-2 ml-1 rounded-xl text-rose-500 hover:bg-rose-500/10 transition-colors border border-transparent hover:border-rose-500/20"
-              title="Logout"
-              aria-label="Logout"
-            >
-              <LogOut className="w-5 h-5" />
-            </button>
+            <Leaf className="w-7 h-7 text-green-600 animate-pulse" />
+
+            <h1 className="font-bold text-lg sm:text-xl text-green-700 dark:text-green-400">
+              GreenMind AI
+            </h1>
           </div>
-        )}
+        </div>
+
+        {/* Right Section */}
+        <div className="flex items-center gap-3">
+
+          {/* User Stats */}
+          {user && (
+            <div className="hidden sm:flex items-center gap-3 rounded-full bg-green-100 dark:bg-green-900/30 px-4 py-2">
+
+              <div className="flex items-center gap-1">
+                <Trophy className="w-4 h-4 text-yellow-500" />
+                <span className="text-sm font-semibold">
+                  Lv {user.level}
+                </span>
+              </div>
+
+              <div className="w-px h-4 bg-slate-300"></div>
+
+              <div className="flex items-center gap-1">
+                <Award className="w-4 h-4 text-emerald-500" />
+                <span className="text-sm font-semibold">
+                  {user.points} pts
+                </span>
+              </div>
+
+            </div>
+          )}
+
+          {/* Theme Toggle */}
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+            aria-label="Toggle theme"
+          >
+            {theme === "dark" ? (
+              <Sun className="w-5 h-5 text-yellow-400" />
+            ) : (
+              <Moon className="w-5 h-5" />
+            )}
+          </button>
+
+          {/* User Profile */}
+          {user && (
+            <div className="flex items-center gap-3">
+
+              {/* Avatar */}
+              <div className="w-10 h-10 rounded-full bg-green-600 text-white flex items-center justify-center font-bold">
+                {user.username
+                  ? user.username.charAt(0).toUpperCase()
+                  : <User className="w-5 h-5" />}
+              </div>
+
+              {/* User Info */}
+              <div className="hidden md:flex flex-col">
+                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                  {user.username}
+                </span>
+
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  {user.email}
+                </span>
+              </div>
+
+              {/* Logout */}
+              <button
+                onClick={handleLogout}
+                disabled={loggingOut}
+                className="p-2 rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition disabled:opacity-50"
+                aria-label="Logout"
+                title="Logout"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
+
+            </div>
+          )}
+
+        </div>
       </div>
     </header>
   );
 };
-export default Navbar;
+
+export default memo(Navbar);
