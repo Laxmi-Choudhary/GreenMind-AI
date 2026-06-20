@@ -1,4 +1,4 @@
-import React from "react";
+import React from 'react';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -6,39 +6,39 @@ class ErrorBoundary extends React.Component {
 
     this.state = {
       hasError: false,
-      error: null
+      error: null,
     };
   }
 
   static getDerivedStateFromError(error) {
     return {
       hasError: true,
-      error
+      error,
     };
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error("Application Error:", error);
+    console.error('Application Error:', error);
     console.error(errorInfo);
   }
 
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex flex-col items-center justify-center">
+        <div className="min-h-screen flex flex-col items-center justify-center p-6">
           <h1 className="text-3xl font-bold text-red-600">
             Something went wrong
           </h1>
 
-          <p className="mt-4 text-slate-500">
-            Please refresh the page.
+          <p className="mt-4 text-slate-500 text-center">
+            An unexpected error occurred. Please refresh the page.
           </p>
 
           <button
-            className="mt-6 px-4 py-2 bg-green-600 text-white rounded"
             onClick={() => window.location.reload()}
+            className="mt-6 px-5 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700"
           >
-            Reload App
+            Reload Application
           </button>
         </div>
       );
