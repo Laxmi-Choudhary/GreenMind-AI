@@ -1,28 +1,124 @@
+# ============================================
 # Python
-.venv/
-backend/venv/
+# ============================================
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+*.so
 
-# Environment
+# Virtual Environments
+.venv/
+venv/
+env/
+ENV/
+backend/venv/
+backend/.venv/
+
+# ============================================
+# Pytest / Coverage
+# ============================================
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.cache/
+
+# ============================================
+# Environment Variables
+# ============================================
 .env
+.env.*
 backend/.env
 frontend/.env
 
-# Node
+# Keep example env files
+!backend/.env.example
+!frontend/.env.example
+
+# ============================================
+# Database Files
+# ============================================
+*.db
+*.sqlite3
+greenmind_fallback.db
+
+# ============================================
+# Logs
+# ============================================
+*.log
+logs/
+
+# ============================================
+# Node.js
+# ============================================
 node_modules/
 frontend/node_modules/
 
-# Build
+# IMPORTANT:
+# Keep package-lock.json tracked for reproducible builds
+# package-lock.json
+
+# Alternative package managers
+pnpm-lock.yaml
+yarn-error.log*
+npm-debug.log*
+yarn-debug.log*
+yarn.lock
+
+# ============================================
+# Frontend Build Files
+# ============================================
 dist/
+build/
 frontend/dist/
 
-# Database
-*.db
+# Vite Cache
+.vite/
 
-# Logs
-*.log
+# ============================================
+# IDE / Editor Files
+# ============================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
 
-# OS
+# ============================================
+# OS Files
+# ============================================
 .DS_Store
 Thumbs.db
+desktop.ini
+
+# ============================================
+# GitHub Actions / CI Artifacts
+# ============================================
+artifacts/
+*.coverage
+
+# ============================================
+# Temporary Files
+# ============================================
+tmp/
+temp/
+*.tmp
+
+# ============================================
+# Jupyter Notebooks
+# ============================================
+.ipynb_checkpoints/
+
+# ============================================
+# Docker
+# ============================================
+.docker/
+
+# ============================================
+# Miscellaneous
+# ============================================
+*.bak
+*.orig
+*.rej
