@@ -1,5 +1,6 @@
 # ============================================
 # Python
+<<<<<<< HEAD
 # ============================================
 __pycache__/
 *.py[cod]
@@ -28,11 +29,22 @@ htmlcov/
 # ============================================
 # Environment Variables
 # ============================================
+=======
+.venv/
+venv/
+backend/venv/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment Variables
+>>>>>>> 80de6de (Update CI configuration)
 .env
 .env.*
 backend/.env
 frontend/.env
 
+<<<<<<< HEAD
 # Keep example env files
 !backend/.env.example
 !frontend/.env.example
@@ -70,10 +82,28 @@ yarn.lock
 # ============================================
 # Frontend Build Files
 # ============================================
+=======
+# Secret Files
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+secrets.json
+credentials.json
+service-account.json
+
+# Node
+node_modules/
+frontend/node_modules/
+
+# Build Artifacts
+>>>>>>> 80de6de (Update CI configuration)
 dist/
 build/
 frontend/dist/
 
+<<<<<<< HEAD
 # Vite Cache
 .vite/
 
@@ -122,3 +152,32 @@ temp/
 *.bak
 *.orig
 *.rej
+=======
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
+
+# Coverage & Testing
+.coverage
+coverage/
+htmlcov/
+.pytest_cache/
+
+# IDE
+.vscode/
+.idea/
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Cache
+.cache/
+.mypy_cache/
+.ruff_cache/
+>>>>>>> 80de6de (Update CI configuration)
