@@ -117,11 +117,7 @@ async def startup_db_client():
 
     await db_manager.connect()
 
-    try:
-        await redis_manager.connect()
-        logger.info("Redis connected successfully")
-    except Exception as e:
-        logger.warning(f"Redis connection failed: {e}")
+    await redis_manager.connect()
 
 # ---------------------------------------------------
 # Shutdown Event
