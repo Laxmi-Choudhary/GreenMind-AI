@@ -34,7 +34,7 @@ def test_register(monkeypatch, client):
     payload = {
         "username": "tester",
         "email": "test@example.com",
-        "password": "password123"
+        "password": "Password123"
     }
 
     response = client.post(
