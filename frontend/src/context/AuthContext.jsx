@@ -1,5 +1,3 @@
-// frontend/src/context/AuthContext.jsx
-
 import React, {
   createContext,
   useContext,
@@ -17,11 +15,13 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   // ==========================================
-  // Helpers
+  // Token Helpers
   // ==========================================
 
   const saveToken = (token) => {
-    localStorage.setItem("greenmind_token", token);
+    if (token) {
+      localStorage.setItem("greenmind_token", token);
+    }
   };
 
   const removeToken = () => {
@@ -33,7 +33,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   // ==========================================
-  // Check Authentication on App Start
+  // Check Authentication on Startup
   // ==========================================
 
   useEffect(() => {
@@ -47,11 +47,9 @@ export const AuthProvider = ({ children }) => {
         }
 
         const userData = await api.get("/api/auth/me");
-
         setUser(userData);
       } catch (error) {
         console.error("Authentication check failed:", error);
-
         removeToken();
         setUser(null);
       } finally {
@@ -75,11 +73,24 @@ export const AuthProvider = ({ children }) => {
         password,
       });
 
-      saveToken(data.access_token);
+      console.log("Login Response:", data);
 
-      setUser(data.user);
+      // Save JWT token
+      if (data.access_token) {
+        saveToken(data.access_token);
+      }
 
-      return data.user;
+      // Set user if backend returns it
+      if (data.user) {
+        setUser(data.user);
+        return data.user;
+      }
+
+      // Otherwise fetch user profile
+      const userData = await api.get("/api/auth/me");
+      setUser(userData);
+
+      return userData;
     } catch (error) {
       console.error("Login failed:", error);
       throw error;
@@ -109,11 +120,18 @@ export const AuthProvider = ({ children }) => {
         }
       );
 
-      saveToken(data.access_token);
+      console.log("Register Response:", data);
 
-      setUser(data.user);
+      if (data.access_token) {
+        saveToken(data.access_token);
+      }
 
-      return data.user;
+      if (data.user) {
+        setUser(data.user);
+        return data.user;
+      }
+
+      return data;
     } catch (error) {
       console.error("Registration failed:", error);
       throw error;
@@ -131,7 +149,7 @@ export const AuthProvider = ({ children }) => {
       await api.post("/api/auth/logout", {});
     } catch (error) {
       console.warn(
-        "Logout API unavailable. Clearing local session.",
+        "Logout API unavailable:",
         error
       );
     } finally {
@@ -146,16 +164,14 @@ export const AuthProvider = ({ children }) => {
 
   const refreshUser = async () => {
     try {
-      const userData = await api.get(
-        "/api/auth/me"
-      );
+      const userData = await api.get("/api/auth/me");
 
       setUser(userData);
 
       return userData;
     } catch (error) {
       console.error(
-        "Failed to refresh user profile:",
+        "Failed to refresh profile:",
         error
       );
 
@@ -206,14 +222,11 @@ export const AuthProvider = ({ children }) => {
     () => ({
       user,
       loading,
-
       login,
       register,
       logout,
-
       refreshUser,
       refreshAccessToken,
-
       setUser,
     }),
     [user, loading]

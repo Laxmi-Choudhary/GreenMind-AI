@@ -26,7 +26,9 @@ from app.utils.auth_utils import (
     create_token,
     verify_token
 )
-from app.middleware.auth_middleware import get_current_user
+from app.middleware.auth_middleware import (
+    get_current_user
+)
 
 # ======================================================
 # Logging
@@ -44,28 +46,44 @@ router = APIRouter(
 )
 
 # ======================================================
-# Pydantic Models
+# Request Models
 # ======================================================
 
 class UserRegister(BaseModel):
     username: str = Field(
         ...,
         min_length=3,
-        max_length=50,
-        description="Username"
+        max_length=50
     )
 
     email: EmailStr
-
     password: str
+
+    @field_validator("username")
+    @classmethod
+    def validate_username(cls, value: str):
+
+        value = value.strip()
+
+        if not re.match(r"^[a-zA-Z0-9_]+$", value):
+            raise ValueError(
+                "Username can contain only letters, numbers and underscores"
+            )
+
+        return value
 
     @field_validator("password")
     @classmethod
-    def validate_password(cls, value: str) -> str:
+    def validate_password(cls, value: str):
 
         if len(value) < 8:
             raise ValueError(
-                "Password must be at least 8 characters"
+                "Password must be at least 8 characters long"
+            )
+
+        if len(value) > 72:
+            raise ValueError(
+                "Password cannot exceed 72 characters"
             )
 
         if not re.search(r"[A-Z]", value):
@@ -91,6 +109,14 @@ class UserLogin(BaseModel):
     password: str
 
 
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
+
+
+# ======================================================
+# Response Models
+# ======================================================
+
 class UserResponse(BaseModel):
     id: str
     username: str
@@ -101,7 +127,7 @@ class UserResponse(BaseModel):
     created_at: str
 
 
-class TokenPairResponse(BaseModel):
+class TokenResponse(BaseModel):
     access_token: str
     refresh_token: Optional[str] = None
     token_type: str = "bearer"
@@ -114,15 +140,45 @@ class RefreshResponse(BaseModel):
 
 
 # ======================================================
+# Helper Functions
+# ======================================================
+
+def build_user_response(user: dict) -> dict:
+    return {
+        "id": user["id"],
+        "username": user["username"],
+        "email": user["email"],
+        "points": user.get("points", 0),
+        "level": user.get("level", 1),
+        "badges": user.get("badges", []),
+        "created_at": user["created_at"]
+    }
+
+
+def set_refresh_cookie(
+    response: Response,
+    refresh_token: str
+):
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=False,  # True in production with HTTPS
+        samesite="Lax",
+        max_age=60 * 60 * 24 * 7,
+        path="/"
+    )
+
+
+# ======================================================
 # Register
 # ======================================================
 
 @router.post(
     "/register",
-    response_model=TokenPairResponse,
+    response_model=TokenResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Register User",
-    description="Create a new user account"
+    summary="Register User"
 )
 async def register(
     user_in: UserRegister,
@@ -139,12 +195,12 @@ async def register(
             detail="Email already registered"
         )
 
-    hashed_password = hash_password(user_in.password)
-
     user_data = {
         "username": user_in.username.strip(),
         "email": user_in.email.lower(),
-        "hashed_password": hashed_password,
+        "hashed_password": hash_password(
+            user_in.password
+        ),
         "points": 0,
         "level": 1,
         "badges": [],
@@ -172,33 +228,20 @@ async def register(
             payload.get("exp")
         )
 
-    response.set_cookie(
-        key="refresh_token",
-        value=refresh_token,
-        httponly=True,
-        secure=False,        
-        samesite="Lax",
-        max_age=60 * 60 * 24 * 7,
-        path="/"
+    set_refresh_cookie(
+        response,
+        refresh_token
     )
 
     logger.info(
-        f"User registered successfully: {user['email']}"
+        f"User registered: {user['email']}"
     )
 
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
         "token_type": "bearer",
-        "user": {
-            "id": user["id"],
-            "username": user["username"],
-            "email": user["email"],
-            "points": user.get("points", 0),
-            "level": user.get("level", 1),
-            "badges": user.get("badges", []),
-            "created_at": user["created_at"]
-        }
+        "user": build_user_response(user)
     }
 
 
@@ -208,9 +251,8 @@ async def register(
 
 @router.post(
     "/login",
-    response_model=TokenPairResponse,
-    summary="User Login",
-    description="Authenticate user and return JWT tokens"
+    response_model=TokenResponse,
+    summary="User Login"
 )
 async def login(
     credentials: UserLogin,
@@ -225,14 +267,13 @@ async def login(
         credentials.password,
         user.get("hashed_password")
     ):
-
         logger.warning(
             f"Failed login attempt: {credentials.email}"
         )
 
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Incorrect email or password"
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password"
         )
 
     access_token = create_token(
@@ -254,68 +295,60 @@ async def login(
             payload.get("exp")
         )
 
-    response.set_cookie(
-        key="refresh_token",
-        value=refresh_token,
-        httponly=True,
-        secure=False,
-        samesite="Lax",
-        max_age=60 * 60 * 24 * 7,
-        path="/"
+    set_refresh_cookie(
+        response,
+        refresh_token
     )
 
     logger.info(
-        f"Successful login: {user['email']}"
+        f"User logged in: {user['email']}"
     )
 
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
         "token_type": "bearer",
-        "user": {
-            "id": user["id"],
-            "username": user["username"],
-            "email": user["email"],
-            "points": user.get("points", 0),
-            "level": user.get("level", 1),
-            "badges": user.get("badges", []),
-            "created_at": user["created_at"]
-        }
+        "user": build_user_response(user)
     }
 
 
 # ======================================================
-# Refresh Token
+# Refresh Access Token
 # ======================================================
 
 @router.post(
     "/token/refresh",
-    response_model=RefreshResponse,
-    summary="Refresh Access Token"
+    response_model=RefreshResponse
 )
-async def refresh_token(
+async def refresh_access_token(
     request: Request,
-    body: Optional[dict] = None
+    body: Optional[RefreshTokenRequest] = None
 ):
 
     token = (
-        body.get("refresh_token")
-        if body and body.get("refresh_token")
-        else request.cookies.get("refresh_token")
+        body.refresh_token
+        if body else
+        request.cookies.get("refresh_token")
     )
 
     if not token:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            status_code=401,
             detail="Refresh token missing"
         )
 
     payload = verify_token(token)
 
-    if not payload or payload.get("type") != "refresh":
+    if not payload:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            status_code=401,
             detail="Invalid refresh token"
+        )
+
+    if payload.get("type") != "refresh":
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid token type"
         )
 
     user_id = payload.get("sub")
@@ -328,7 +361,7 @@ async def refresh_token(
 
     if not valid:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            status_code=401,
             detail="Refresh token revoked"
         )
 
@@ -347,20 +380,17 @@ async def refresh_token(
 # Logout
 # ======================================================
 
-@router.post(
-    "/logout",
-    summary="Logout User"
-)
+@router.post("/logout")
 async def logout(
     request: Request,
     response: Response,
-    body: Optional[dict] = None
+    body: Optional[RefreshTokenRequest] = None
 ):
 
     token = (
-        body.get("refresh_token")
-        if body and body.get("refresh_token")
-        else request.cookies.get("refresh_token")
+        body.refresh_token
+        if body else
+        request.cookies.get("refresh_token")
     )
 
     if token:
@@ -388,19 +418,13 @@ async def logout(
 
 @router.get(
     "/me",
-    response_model=UserResponse,
-    summary="Get Current User"
+    response_model=UserResponse
 )
 async def get_me(
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(
+        get_current_user
+    )
 ):
-
-    return {
-        "id": current_user["id"],
-        "username": current_user["username"],
-        "email": current_user["email"],
-        "points": current_user.get("points", 0),
-        "level": current_user.get("level", 1),
-        "badges": current_user.get("badges", []),
-        "created_at": current_user["created_at"]
-    }
+    return build_user_response(
+        current_user
+    )
