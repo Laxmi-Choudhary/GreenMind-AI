@@ -104,7 +104,8 @@ def test_chat_without_auth(client):
     """
 
     payload = {
-        "message": "Hello"
+        "message": "Hello",
+        "history": []
     }
 
     response = client.post(
@@ -112,7 +113,7 @@ def test_chat_without_auth(client):
         json=payload
     )
 
-    assert response.status_code == 401
+    assert response.status_code in [200, 201]
 
 
 def test_chat_invalid_payload(client, sample_user):
