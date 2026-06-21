@@ -35,7 +35,7 @@ def test_refresh_flow(monkeypatch, client):
 
     # Use refresh endpoint (cookie will be sent automatically by TestClient)
     r2 = client.post("/api/auth/token/refresh", json={})
-    assert r2.status_code == 200
+    assert r2.status_code == 200, f"Failed with {r2.status_code}: {r2.json()}"
     assert "access_token" in r2.json()
 
     # Logout (revoke) - cookie will be used
