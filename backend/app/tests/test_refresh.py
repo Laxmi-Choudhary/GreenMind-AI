@@ -34,14 +34,24 @@ def test_refresh_flow(monkeypatch, client):
     assert rt is not None
 
     # Use refresh endpoint (cookie will be sent automatically by TestClient)
-    r2 = client.post("/api/auth/token/refresh", json={})
+    r2 = client.post(
+        "/api/auth/token/refresh",
+        cookies={"refresh_token": rt}
+    )   
+
     assert r2.status_code == 200, f"Failed with {r2.status_code}: {r2.json()}"
     assert "access_token" in r2.json()
 
     # Logout (revoke) - cookie will be used
-    r3 = client.post("/api/auth/logout", json={})
+    r3 = client.post(
+    "/api/auth/logout",
+    json={"refresh_token": rt}
+    )
     assert r3.status_code == 200
 
     # After revoke, refresh should fail
-    r4 = client.post("/api/auth/token/refresh", json={})
+    r4 = client.post(
+    "/api/auth/token/refresh",
+    json={"refresh_token": rt}
+    )
     assert r4.status_code == 401
