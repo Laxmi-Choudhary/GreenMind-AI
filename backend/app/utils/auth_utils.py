@@ -3,13 +3,12 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 
+import bcrypt
 import jwt
 from jwt import (
     ExpiredSignatureError,
     InvalidTokenError
 )
-
-from passlib.context import CryptContext
 
 from app.config import settings
 
@@ -20,23 +19,16 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 # ======================================================
-# Password Hashing Configuration
-# ======================================================
-
-pwd_context = CryptContext(
-    schemes=["bcrypt"],
-    deprecated="auto"
-)
-
-# ======================================================
 # Password Utilities
 # ======================================================
 
 def hash_password(password: str) -> str:
     """
-    Hash a plain text password.
+    Hash a plain text password using bcrypt directly.
     """
-    return pwd_context.hash(password)
+    password_bytes = password.encode("utf-8")
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(password_bytes, salt).decode("utf-8")
 
 
 def verify_password(
@@ -47,9 +39,9 @@ def verify_password(
     Verify plain password against hash.
     """
     try:
-        return pwd_context.verify(
-            password,
-            hashed_password
+        return bcrypt.checkpw(
+            password.encode("utf-8"),
+            hashed_password.encode("utf-8")
         )
 
     except Exception as e:
