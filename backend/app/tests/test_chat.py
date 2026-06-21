@@ -47,7 +47,8 @@ def test_chat_success(monkeypatch, client, sample_user):
     # ----------------------------------------------------------------
 
     payload = {
-        "message": "How can I reduce my carbon footprint?"
+        "message": "How can I reduce my carbon footprint?",
+        "history": []
     }
 
     response = client.post(
