@@ -1,226 +1,552 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { 
-  Trophy, 
-  Award, 
-  Plus, 
-  TrendingUp, 
+import {
+  Trophy,
+  Award,
+  Plus,
   CheckCircle,
-  HelpCircle,
   Loader2,
-  Lock
+  Lock,
+  RotateCcw,
+  Target,
+  TrendingUp,
+  Star,
+  AlertCircle
 } from 'lucide-react';
 
 export const Challenges = () => {
   const { user, refreshUser } = useAuth();
+
   const [challenges, setChallenges] = useState([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState(null);
+  const [resetting, setResetting] = useState(false);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+
+  // =====================================================
+  // FETCH CHALLENGES
+  // =====================================================
 
   useEffect(() => {
-    const fetchChallenges = async () => {
-      try {
-        const data = await api.get('/api/challenges');
-        setChallenges(data);
-      } catch (err) {
-        console.error("Failed to load challenges:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchChallenges();
   }, []);
 
-  const handleProgressIncrement = async (challengeId) => {
-    setUpdatingId(challengeId);
+  const fetchChallenges = async () => {
     try {
-      const result = await api.post(`/api/challenges/${challengeId}/progress`, { increment: 1 });
-      
-      // Update local state for challenges
-      setChallenges(prev => prev.map(ch => ch.id === challengeId ? result.challenge : ch));
-      
-      // Update context user profile stats
+      setLoading(true);
+      setError('');
+
+      const res = await api.get('/api/challenges');
+
+      const challengeList =
+        res?.data?.challenges ||
+        res?.challenges ||
+        [];
+
+      setChallenges(
+        Array.isArray(challengeList)
+          ? challengeList
+          : []
+      );
+    } catch (err) {
+      console.error('Failed to load challenges:', err);
+      setError('Failed to load challenges');
+      setChallenges([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // =====================================================
+  // UPDATE PROGRESS
+  // =====================================================
+
+  const handleProgressIncrement = async (challengeId) => {
+    try {
+      setUpdatingId(challengeId);
+      setMessage('');
+      setError('');
+
+      const res = await api.post(
+        `/api/challenges/${challengeId}/progress`,
+        {
+          increment: 1
+        }
+      );
+
+      const updatedChallenge =
+        res?.data?.challenge ||
+        res?.challenge;
+
+      const messages =
+        res?.data?.messages ||
+        res?.messages ||
+        [];
+
+      if (updatedChallenge) {
+        setChallenges(prev =>
+          prev.map(ch =>
+            ch.id === challengeId
+              ? updatedChallenge
+              : ch
+          )
+        );
+      }
+
+      if (messages.length > 0) {
+        setMessage(messages.join(' • '));
+      }
+
       await refreshUser();
     } catch (err) {
-      console.error("Failed to update challenge progress:", err);
+      console.error(
+        'Failed to update challenge:',
+        err
+      );
+
+      setError(
+        err?.response?.data?.detail ||
+        'Failed to update challenge'
+      );
     } finally {
       setUpdatingId(null);
     }
   };
 
+  // =====================================================
+  // RESET CHALLENGES
+  // =====================================================
+
+  const handleReset = async () => {
+    if (
+      !window.confirm(
+        'Reset all challenges?'
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setResetting(true);
+
+      const res = await api.post(
+        '/api/challenges/reset'
+      );
+
+      const newChallenges =
+        res?.data?.challenges ||
+        res?.challenges ||
+        [];
+
+      setChallenges(newChallenges);
+      setMessage(
+        'Challenges reset successfully.'
+      );
+
+      await refreshUser();
+    } catch (err) {
+      console.error(err);
+
+      setError(
+        err?.response?.data?.detail ||
+        'Failed to reset challenges'
+      );
+    } finally {
+      setResetting(false);
+    }
+  };
+
+  // =====================================================
+  // STATS
+  // =====================================================
+
+  const stats = useMemo(() => {
+    const completed = challenges.filter(
+      c => c.status === 'completed'
+    ).length;
+
+    return {
+      total: challenges.length,
+      completed,
+      active: challenges.length - completed
+    };
+  }, [challenges]);
+
+  // =====================================================
+  // BADGES
+  // =====================================================
+
+  const badgeData = {
+    'First Step': {
+      desc: 'Logged first footprint',
+      color:
+        'bg-emerald-100 text-emerald-700'
+    },
+
+    'Eco Warrior': {
+      desc: 'Low carbon footprint',
+      color:
+        'bg-amber-100 text-amber-700'
+    },
+
+    'Consistent Saver': {
+      desc: '5 daily entries',
+      color:
+        'bg-blue-100 text-blue-700'
+    },
+
+    'Energy Saver': {
+      desc: 'Low energy usage',
+      color:
+        'bg-cyan-100 text-cyan-700'
+    },
+
+    'Cruisin\' Green': {
+      desc: 'Green transportation',
+      color:
+        'bg-indigo-100 text-indigo-700'
+    },
+
+    'Eco Commuter': {
+      desc: 'Completed travel challenge',
+      color:
+        'bg-green-100 text-green-700'
+    },
+
+    'Watts Saver': {
+      desc: 'Completed energy challenge',
+      color:
+        'bg-yellow-100 text-yellow-700'
+    },
+
+    'Green Gourmet': {
+      desc: 'Completed food challenge',
+      color:
+        'bg-lime-100 text-lime-700'
+    },
+
+    'Minimalist Pack': {
+      desc: 'Completed shopping challenge',
+      color:
+        'bg-pink-100 text-pink-700'
+    },
+
+    'Zero Waster': {
+      desc: 'Completed waste challenge',
+      color:
+        'bg-purple-100 text-purple-700'
+    }
+  };
+
+  const unlockedBadges =
+    user?.badges || [];
+
+  // =====================================================
+  // LOADING
+  // =====================================================
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brand-500"></div>
+      <div className="flex justify-center items-center min-h-[60vh]">
+        <Loader2 className="w-10 h-10 animate-spin text-green-600" />
       </div>
     );
   }
 
-  // Pre-configured Badge icons dictionary
-  const badgeIcons = {
-    "First Step": { color: "bg-emerald-500/10 text-emerald-600 border-emerald-500/25", desc: "Logged first carbon footprint" },
-    "Eco Warrior": { color: "bg-amber-500/10 text-amber-600 border-amber-500/25", desc: "Submitted entry under 10 kg CO₂" },
-    "Consistent Saver": { color: "bg-blue-500/10 text-blue-600 border-blue-500/25", desc: "Submitted 5 daily entries" },
-    "Energy Saver": { color: "bg-cyan-500/10 text-cyan-600 border-cyan-500/25", desc: "Logged 0 AC hours + low utilities" },
-    "Cruisin' Green": { color: "bg-indigo-500/10 text-indigo-600 border-indigo-500/25", desc: "Opted for metro/bus transit over car" },
-    "Eco Commuter": { color: "bg-green-500/10 text-green-600 border-green-500/25", desc: "Completed Walk To Work challenge" },
-    "Watts Miner": { color: "bg-yellow-500/10 text-yellow-600 border-yellow-500/25", desc: "Completed Save Electricity challenge" },
-    "Green Gourmet": { color: "bg-lime-500/10 text-lime-600 border-lime-500/25", desc: "Completed Vegan/Vegetarian challenge" },
-    "Minimalist Pack": { color: "bg-pink-500/10 text-pink-600 border-pink-500/25", desc: "Completed Sustainable Shopping challenge" },
-    "Zero Waster": { color: "bg-purple-500/10 text-purple-600 border-purple-500/25", desc: "Completed No Plastic Week challenge" }
-  };
-
-  const unlockedBadges = user?.badges || [];
+  // =====================================================
+  // UI
+  // =====================================================
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto animate-slide-up">
-      {/* Title */}
-      <div className="flex items-center gap-3">
-        <div className="p-3 rounded-2xl bg-brand-500/10 text-brand-600 dark:text-brand-400">
-          <Trophy className="w-8 h-8 animate-pulse-subtle" />
+    <div className="max-w-7xl mx-auto space-y-8">
+
+      {/* HEADER */}
+
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+
+        <div className="flex items-center gap-4">
+          <div className="p-4 rounded-2xl bg-green-100">
+            <Trophy className="w-8 h-8 text-green-600" />
+          </div>
+
+          <div>
+            <h1 className="text-3xl font-bold">
+              Eco Challenges
+            </h1>
+
+            <p className="text-gray-500">
+              Complete challenges and earn rewards
+            </p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Eco Challenges & Badges</h1>
-          <p className="text-slate-500 dark:text-slate-400">Adopt micro-habits, complete challenges, and earn badges to level up.</p>
-        </div>
+
+        <button
+          onClick={handleReset}
+          disabled={resetting}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-900 text-white hover:bg-gray-800"
+        >
+          {resetting ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <RotateCcw className="w-4 h-4" />
+          )}
+
+          Reset Challenges
+        </button>
       </div>
 
-      {/* Stats row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div className="glass-panel p-5 rounded-3xl border border-slate-200/50 dark:border-slate-800/40 text-center">
-          <span className="text-xs text-slate-400 font-bold uppercase tracking-wider block">Level Status</span>
-          <span className="text-3xl font-extrabold text-brand-600 dark:text-brand-400 mt-2 block">Level {user?.level}</span>
-          <p className="text-xs text-slate-500 mt-1">Crosses level boundaries every 100 XP</p>
+      {/* ALERTS */}
+
+      {message && (
+        <div className="p-4 rounded-xl bg-green-100 text-green-700">
+          {message}
+        </div>
+      )}
+
+      {error && (
+        <div className="p-4 rounded-xl bg-red-100 text-red-700 flex items-center gap-2">
+          <AlertCircle className="w-5 h-5" />
+          {error}
+        </div>
+      )}
+
+      {/* STATS */}
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+
+        <div className="p-6 rounded-3xl border bg-white">
+          <Target className="w-6 h-6 text-blue-600 mb-3" />
+
+          <p className="text-gray-500 text-sm">
+            Total Challenges
+          </p>
+
+          <h2 className="text-3xl font-bold">
+            {stats.total}
+          </h2>
         </div>
 
-        <div className="glass-panel p-5 rounded-3xl border border-slate-200/50 dark:border-slate-800/40 text-center">
-          <span className="text-xs text-slate-400 font-bold uppercase tracking-wider block">Total Points</span>
-          <span className="text-3xl font-extrabold text-slate-900 dark:text-white mt-2 block">{user?.points} XP</span>
-          <p className="text-xs text-slate-500 mt-1">Complete tasks to accumulate points</p>
+        <div className="p-6 rounded-3xl border bg-white">
+          <CheckCircle className="w-6 h-6 text-green-600 mb-3" />
+
+          <p className="text-gray-500 text-sm">
+            Completed
+          </p>
+
+          <h2 className="text-3xl font-bold">
+            {stats.completed}
+          </h2>
         </div>
 
-        <div className="glass-panel p-5 rounded-3xl border border-slate-200/50 dark:border-slate-800/40 text-center">
-          <span className="text-xs text-slate-400 font-bold uppercase tracking-wider block">Badges Claimed</span>
-          <span className="text-3xl font-extrabold text-slate-900 dark:text-white mt-2 block">{unlockedBadges.length} unlocked</span>
-          <p className="text-xs text-slate-500 mt-1">10 unique achievements available</p>
+        <div className="p-6 rounded-3xl border bg-white">
+          <TrendingUp className="w-6 h-6 text-purple-600 mb-3" />
+
+          <p className="text-gray-500 text-sm">
+            Level
+          </p>
+
+          <h2 className="text-3xl font-bold">
+            {user?.level || 1}
+          </h2>
         </div>
+
+        <div className="p-6 rounded-3xl border bg-white">
+          <Star className="w-6 h-6 text-yellow-600 mb-3" />
+
+          <p className="text-gray-500 text-sm">
+            XP Points
+          </p>
+
+          <h2 className="text-3xl font-bold">
+            {user?.points || 0}
+          </h2>
+        </div>
+
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Active Challenges list */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+        {/* CHALLENGES */}
+
         <div className="lg:col-span-2 space-y-4">
-          <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2">Available Challenges</h3>
-          
-          <div className="space-y-4">
-            {challenges.map((ch) => {
-              const isCompleted = ch.status === 'completed';
+
+          <h2 className="text-xl font-bold">
+            Available Challenges
+          </h2>
+
+          {challenges.length === 0 ? (
+            <div className="p-10 border rounded-3xl text-center">
+              No challenges available.
+            </div>
+          ) : (
+            challenges.map(challenge => {
+
+              const completed =
+                challenge.status === 'completed';
+
+              const percentage =
+                challenge.target > 0
+                  ? Math.round(
+                    (challenge.progress /
+                      challenge.target) *
+                    100
+                  )
+                  : 0;
+
               return (
-                <div 
-                  key={ch.id} 
-                  className={`glass-panel p-5 rounded-3xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all ${
-                    isCompleted 
-                      ? 'border-brand-500/20 bg-brand-500/[0.02] opacity-75' 
-                      : 'border-slate-200/50 dark:border-slate-800/40'
-                  }`}
+                <div
+                  key={challenge.id}
+                  className="border rounded-3xl p-6 bg-white shadow-sm"
                 >
-                  <div className="space-y-2 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${
-                        ch.category === 'travel' ? 'bg-green-500/10 text-green-600' :
-                        ch.category === 'energy' ? 'bg-blue-500/10 text-blue-600' :
-                        ch.category === 'food' ? 'bg-amber-500/10 text-amber-600' :
-                        ch.category === 'shopping' ? 'bg-pink-500/10 text-pink-650' : 'bg-purple-500/10 text-purple-650'
-                      }`}>
-                        {ch.category}
-                      </span>
-                      <h4 className="font-bold text-slate-855 dark:text-white text-base">{ch.title}</h4>
-                    </div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">{ch.description}</p>
-                    
-                    {/* Progress slider bar */}
-                    <div className="flex items-center gap-3 w-full max-w-xs pt-1">
-                      <div className="flex-1 h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-brand-500 rounded-full transition-all duration-300"
-                          style={{ width: `${(ch.progress / ch.target) * 100}%` }}
+
+                  <div className="flex flex-col md:flex-row justify-between gap-5">
+
+                    <div className="flex-1">
+
+                      <div className="flex items-center gap-2 mb-2">
+
+                        <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
+                          {challenge.category}
+                        </span>
+
+                        <h3 className="font-bold text-lg">
+                          {challenge.title}
+                        </h3>
+
+                      </div>
+
+                      <p className="text-gray-500 mb-4">
+                        {challenge.description}
+                      </p>
+
+                      <div className="w-full h-3 rounded-full bg-gray-200 overflow-hidden">
+
+                        <div
+                          className="h-full bg-green-600 transition-all"
+                          style={{
+                            width: `${percentage}%`
+                          }}
                         />
+
                       </div>
-                      <span className="text-xs font-semibold text-slate-500">{ch.progress}/{ch.target}</span>
+
+                      <div className="flex justify-between mt-2 text-sm text-gray-500">
+
+                        <span>
+                          {challenge.progress}/
+                          {challenge.target}
+                        </span>
+
+                        <span>
+                          {percentage}%
+                        </span>
+
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="flex sm:flex-col items-end justify-between sm:justify-center gap-2 border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-100 dark:border-slate-800/40">
-                    <span className="text-xs font-bold text-slate-650 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
-                      +{ch.points} XP
-                    </span>
-                    {isCompleted ? (
-                      <div className="flex items-center gap-1 text-xs font-semibold text-brand-600 dark:text-brand-400 px-3 py-2 rounded-xl bg-brand-500/10">
-                        <CheckCircle className="w-4 h-4" />
-                        <span>Completed</span>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => handleProgressIncrement(ch.id)}
-                        disabled={updatingId !== null}
-                        className="flex items-center gap-1 px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50 cursor-pointer shadow-md shadow-brand-500/5"
-                      >
-                        {updatingId === ch.id ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                          <>
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Log Action</span>
-                          </>
-                        )}
-                      </button>
-                    )}
+                    <div className="flex flex-col gap-3 items-end">
+
+                      <span className="font-bold text-yellow-600">
+                        +{challenge.points} XP
+                      </span>
+
+                      {completed ? (
+                        <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-green-100 text-green-700">
+                          <CheckCircle className="w-4 h-4" />
+                          Completed
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() =>
+                            handleProgressIncrement(
+                              challenge.id
+                            )
+                          }
+                          disabled={
+                            updatingId ===
+                            challenge.id
+                          }
+                          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-green-600 text-white hover:bg-green-700"
+                        >
+                          {updatingId ===
+                            challenge.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <>
+                              <Plus className="w-4 h-4" />
+                              Log Action
+                            </>
+                          )}
+                        </button>
+                      )}
+
+                    </div>
+
                   </div>
                 </div>
               );
-            })}
-          </div>
+            })
+          )}
+
         </div>
 
-        {/* Badges Panel */}
-        <div className="glass-panel p-5 rounded-3xl border border-slate-200/50 dark:border-slate-800/40 flex flex-col">
-          <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">Your Badges</h3>
-          
-          <div className="grid grid-cols-2 gap-3 flex-1">
-            {Object.keys(badgeIcons).map((badgeName) => {
-              const isUnlocked = unlockedBadges.includes(badgeName);
-              const { color, desc } = badgeIcons[badgeName];
-              return (
-                <div 
-                  key={badgeName}
-                  className={`p-3 rounded-2xl border text-center flex flex-col items-center justify-center gap-2 transition-all ${
-                    isUnlocked 
-                      ? `${color} transform hover:scale-[1.03]` 
-                      : 'bg-slate-100 dark:bg-slate-900/40 border-slate-200/30 dark:border-slate-800/30 opacity-40'
-                  }`}
-                >
-                  <div className="p-2.5 rounded-full bg-white dark:bg-slate-950 shadow-sm border border-slate-200/30 dark:border-slate-800/30">
-                    {isUnlocked ? (
-                      <Award className="w-6 h-6 text-brand-500" />
-                    ) : (
-                      <Lock className="w-6 h-6 text-slate-400" />
-                    )}
-                  </div>
-                  <div className="space-y-0.5">
-                    <h5 className="text-[10px] font-bold tracking-tight text-slate-900 dark:text-white leading-tight">
-                      {badgeName}
-                    </h5>
-                    <p className="text-[9px] text-slate-550 leading-tight block truncate w-24" title={desc}>
-                      {desc}
+        {/* BADGES */}
+
+        <div className="border rounded-3xl p-6 bg-white">
+
+          <h2 className="text-xl font-bold mb-5">
+            Your Badges
+          </h2>
+
+          <div className="grid grid-cols-2 gap-4">
+
+            {Object.entries(badgeData).map(
+              ([name, badge]) => {
+
+                const unlocked =
+                  unlockedBadges.includes(name);
+
+                return (
+                  <div
+                    key={name}
+                    className={`rounded-2xl p-4 border text-center ${unlocked
+                        ? badge.color
+                        : 'bg-gray-100 text-gray-400'
+                      }`}
+                  >
+
+                    <div className="flex justify-center mb-2">
+
+                      {unlocked ? (
+                        <Award className="w-7 h-7" />
+                      ) : (
+                        <Lock className="w-7 h-7" />
+                      )}
+
+                    </div>
+
+                    <h4 className="font-semibold text-sm">
+                      {name}
+                    </h4>
+
+                    <p className="text-xs mt-1">
+                      {badge.desc}
                     </p>
+
                   </div>
-                </div>
-              );
-            })}
+                );
+              }
+            )}
+
           </div>
+
         </div>
+
       </div>
     </div>
   );
 };
+
 export default Challenges;

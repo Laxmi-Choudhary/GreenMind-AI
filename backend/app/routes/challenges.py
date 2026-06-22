@@ -1,9 +1,15 @@
-from _pytest import python_api
-from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
-from typing import List
 import copy
 import logging
+from datetime import datetime
+from typing import List, Dict, Any
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    status
+)
+from pydantic import BaseModel, Field
 
 from app.database import db_manager
 from app.middleware.auth_middleware import get_current_user
@@ -15,70 +21,64 @@ router = APIRouter(
     tags=["Challenges"]
 )
 
-# =====================================================
-# Challenge Templates
-# =====================================================
+# ==========================================================
+# CHALLENGE TEMPLATES
+# ==========================================================
 
 CHALLENGE_TEMPLATES = [
     {
         "id": "no_plastic",
         "title": "No Plastic Week",
-        "description": (
-            "Avoid using single-use plastic bottles, "
-            "bags, or packaging for 7 days."
-        ),
+        "description":
+            "Avoid using single-use plastic items for 7 days.",
         "category": "waste",
         "points": 150,
         "target": 7,
         "progress": 0,
         "status": "active"
     },
+
     {
         "id": "walk_to_work",
         "title": "Walk To Work",
-        "description": (
-            "Walk, cycle, or skateboard for commute "
-            "trips at least 3 days."
-        ),
+        "description":
+            "Walk or cycle for commuting at least 3 days.",
         "category": "travel",
         "points": 100,
         "target": 3,
         "progress": 0,
         "status": "active"
     },
+
     {
         "id": "save_electricity",
         "title": "Save Electricity",
-        "description": (
-            "Keep daily electricity usage under "
-            "6 kWh for 5 days."
-        ),
+        "description":
+            "Keep electricity consumption under target for 5 days.",
         "category": "energy",
         "points": 120,
         "target": 5,
         "progress": 0,
         "status": "active"
     },
+
     {
         "id": "sustainable_shopping",
         "title": "Sustainable Shopping",
-        "description": (
-            "Avoid ordering online for 2 weeks "
-            "to reduce freight shipping."
-        ),
+        "description":
+            "Avoid unnecessary online shopping for 2 weeks.",
         "category": "shopping",
         "points": 100,
         "target": 2,
         "progress": 0,
         "status": "active"
     },
+
     {
         "id": "vegan_marathon",
         "title": "Vegan for 3 Days",
-        "description": (
-            "Opt for completely vegan meals "
-            "for 3 consecutive days."
-        ),
+        "description":
+            "Eat fully vegan meals for 3 consecutive days.",
         "category": "food",
         "points": 80,
         "target": 3,
@@ -88,52 +88,103 @@ CHALLENGE_TEMPLATES = [
 ]
 
 
-# =====================================================
-# Request Models
-# =====================================================
+# ==========================================================
+# PYDANTIC MODELS
+# ==========================================================
 
 class ProgressInput(BaseModel):
     increment: int = Field(..., gt=0)
 
 
-# =====================================================
-# Get All Challenges
-# =====================================================
+class ChallengeResponse(BaseModel):
+    id: str
+    title: str
+    description: str
+    category: str
+    points: int
+    target: int
+    progress: int
+    status: str
+    created_at: str | None = None
+    completed_at: str | None = None
 
-@router.get("/", status_code=status.HTTP_200_OK)
+
+# ==========================================================
+# HELPERS
+# ==========================================================
+
+async def initialize_user_challenges(
+    user_id: str
+) -> List[Dict[str, Any]]:
+
+    challenges = copy.deepcopy(CHALLENGE_TEMPLATES)
+
+    for challenge in challenges:
+        challenge["created_at"] = (
+            datetime.utcnow().isoformat()
+        )
+        challenge["completed_at"] = None
+
+    await db_manager.save_challenges_by_user(
+        user_id,
+        challenges
+    )
+
+    return challenges
+
+
+async def get_user_challenges(
+    user_id: str
+) -> List[Dict[str, Any]]:
+
+    challenges = (
+        await db_manager.get_challenges_by_user(
+            user_id
+        )
+    )
+
+    if not challenges:
+        challenges = await initialize_user_challenges(
+            user_id
+        )
+
+    return challenges
+
+
+# ==========================================================
+# GET ALL CHALLENGES
+# ==========================================================
+
+@router.get("/")
 async def get_challenges(
     current_user: dict = Depends(get_current_user)
 ):
-    """
-    Get all challenges for current user.
-    """
 
     try:
 
         user_id = current_user["id"]
 
-        user_challenges = (
-            await db_manager.get_challenges_by_user(
-                user_id
-            )
+        challenges = await get_user_challenges(
+            user_id
         )
 
-        # First time user
-        if not user_challenges:
+        total = len(challenges)
 
-            user_challenges = copy.deepcopy(
-                CHALLENGE_TEMPLATES
-            )
+        completed = len(
+            [
+                c for c in challenges
+                if c["status"] == "completed"
+            ]
+        )
 
-            await db_manager.save_challenges_by_user(
-                user_id,
-                user_challenges
-            )
+        active = total - completed
 
         return {
             "success": True,
-            "count": len(user_challenges),
-            "challenges": user_challenges
+            "count": total,
+            "completed": completed,
+            "active": active,
+            "challenges": challenges
         }
 
     except Exception as e:
@@ -148,57 +199,58 @@ async def get_challenges(
         )
 
 
-# =====================================================
-# Get Single Challenge
-# =====================================================
+# ==========================================================
+# GET SINGLE CHALLENGE
+# ==========================================================
 
 @router.get("/{challenge_id}")
 async def get_challenge(
     challenge_id: str,
     current_user: dict = Depends(get_current_user)
 ):
-    """
-    Get single challenge details.
-    """
 
-    user_id = current_user["id"]
+    try:
 
-    challenges = (
-        await db_manager.get_challenges_by_user(
+        user_id = current_user["id"]
+
+        challenges = await get_user_challenges(
             user_id
         )
-    )
 
-    if not challenges:
-        challenges = copy.deepcopy(
-            CHALLENGE_TEMPLATES
+        challenge = next(
+            (
+                ch for ch in challenges
+                if ch["id"] == challenge_id
+            ),
+            None
         )
 
-        await db_manager.save_challenges_by_user(
-            user_id,
-            challenges
+        if not challenge:
+            raise HTTPException(
+                status_code=404,
+                detail="Challenge not found"
+            )
+
+        return challenge
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+
+        logger.exception(
+            f"Error fetching challenge: {e}"
         )
 
-    challenge = next(
-        (
-            ch for ch in challenges
-            if ch["id"] == challenge_id
-        ),
-        None
-    )
-
-    if not challenge:
         raise HTTPException(
-            status_code=404,
-            detail="Challenge not found"
+            status_code=500,
+            detail="Failed to fetch challenge"
         )
 
-    return challenge
 
-
-# =====================================================
-# Update Challenge Progress
-# =====================================================
+# ==========================================================
+# UPDATE PROGRESS
+# ==========================================================
 
 @router.post("/{challenge_id}/progress")
 async def update_challenge_progress(
@@ -206,40 +258,32 @@ async def update_challenge_progress(
     payload: ProgressInput,
     current_user: dict = Depends(get_current_user)
 ):
-    """
-    Update challenge progress.
-    """
 
     try:
 
         user_id = current_user["id"]
 
-        user_challenges = (
-            await db_manager.get_challenges_by_user(
-                user_id
-            )
+        challenges = await get_user_challenges(
+            user_id
         )
-
-        if not user_challenges:
-            user_challenges = copy.deepcopy(
-                CHALLENGE_TEMPLATES
-            )
 
         challenge = next(
             (
-                ch for ch in user_challenges
-                if ch["id"] == challenge_id
+                c for c in challenges
+                if c["id"] == challenge_id
             ),
             None
         )
 
         if challenge is None:
+
             raise HTTPException(
                 status_code=404,
                 detail="Challenge not found"
             )
 
         if challenge["status"] == "completed":
+
             return {
                 "success": True,
                 "message":
@@ -249,52 +293,55 @@ async def update_challenge_progress(
 
         challenge["progress"] = min(
             challenge["target"],
-            challenge["progress"]
-            + payload.increment
+            challenge["progress"] +
+            payload.increment
         )
 
+        messages = []
         points_earned = 0
         level_up = False
-        messages = []
 
-        # ==========================================
-        # Challenge Completed
-        # ==========================================
+        # ==================================================
+        # COMPLETION LOGIC
+        # ==================================================
 
         if challenge["progress"] >= challenge["target"]:
 
             challenge["status"] = "completed"
+            challenge["completed_at"] = (
+                datetime.utcnow().isoformat()
+            )
 
             points_earned = challenge["points"]
 
             messages.append(
-                f"Completed '{challenge['title']}' "
-                f"+{points_earned} points earned."
+                f"Challenge '{challenge['title']}' completed!"
             )
 
             badge_map = {
                 "travel": "Eco Commuter",
-                "energy": "Watts Saver",
+                "energy": "Energy Saver",
                 "food": "Green Gourmet",
-                "shopping": "Minimalist Pack",
-                "waste": "Zero Waster"
+                "shopping": "Eco Shopper",
+                "waste": "Zero Waste Hero"
             }
 
-            badge = badge_map.get(
+            earned_badge = badge_map.get(
                 challenge["category"],
-                "Champion"
+                "Green Champion"
             )
 
             badges = set(
                 current_user.get("badges", [])
             )
 
-            if badge not in badges:
+            if earned_badge not in badges:
 
-                badges.add(badge)
+                badges.add(earned_badge)
 
                 messages.append(
-                    f"Unlocked badge: {badge}"
+                    f"New badge unlocked: "
+                    f"{earned_badge}"
                 )
 
             updated_points = (
@@ -303,19 +350,18 @@ async def update_challenge_progress(
             )
 
             updated_level = (
-                1 + updated_points // 100
+                1 + (updated_points // 100)
             )
 
-            level_up = (
+            if (
                 updated_level >
                 current_user.get("level", 1)
-            )
-
-            if level_up:
+            ):
+                level_up = True
 
                 messages.append(
-                    f"Congratulations! "
-                    f"Level {updated_level} reached."
+                    f"You reached level "
+                    f"{updated_level}"
                 )
 
             await db_manager.update_user(
@@ -335,11 +381,11 @@ async def update_challenge_progress(
                 f"{challenge['target']}"
             )
 
-        # Save updated challenges
+        # Save challenges
 
         await db_manager.save_challenges_by_user(
             user_id,
-            user_challenges
+            challenges
         )
 
         updated_user = (
@@ -378,7 +424,7 @@ async def update_challenge_progress(
     except Exception as e:
 
         logger.exception(
-            f"Error updating challenge: {e}"
+            f"Challenge update failed: {e}"
         )
 
         raise HTTPException(
@@ -387,17 +433,14 @@ async def update_challenge_progress(
         )
 
 
-# =====================================================
-# Reset Challenges (Optional)
-# =====================================================
+# ==========================================================
+# RESET CHALLENGES
+# ==========================================================
 
 @router.post("/reset")
 async def reset_challenges(
     current_user: dict = Depends(get_current_user)
 ):
-    """
-    Reset all challenges.
-    """
 
     try:
 
@@ -406,6 +449,12 @@ async def reset_challenges(
         challenges = copy.deepcopy(
             CHALLENGE_TEMPLATES
         )
+
+        for challenge in challenges:
+            challenge["created_at"] = (
+                datetime.utcnow().isoformat()
+            )
+            challenge["completed_at"] = None
 
         await db_manager.save_challenges_by_user(
             user_id,
@@ -422,10 +471,69 @@ async def reset_challenges(
     except Exception as e:
 
         logger.exception(
-            f"Error resetting challenges: {e}"
+            f"Challenge reset failed: {e}"
         )
 
         raise HTTPException(
             status_code=500,
             detail="Failed to reset challenges"
         )
+
+
+# ==========================================================
+# USER CHALLENGE STATS
+# ==========================================================
+
+@router.get("/stats/summary")
+async def challenge_stats(
+    current_user: dict = Depends(get_current_user)
+):
+
+    try:
+
+        user_id = current_user["id"]
+
+        challenges = await get_user_challenges(
+            user_id
+        )
+
+        total = len(challenges)
+
+        completed = len(
+            [
+                c for c in challenges
+                if c["status"] == "completed"
+            ]
+        )
+
+        completion_rate = (
+            round((completed / total) * 100, 2)
+            if total > 0 else 0
+        )
+
+        return {
+            "success": True,
+            "total": total,
+            "completed": completed,
+            "active": total - completed,
+            "completion_rate": completion_rate
+        }
+
+    except Exception as e:
+
+        logger.exception(
+            f"Stats error: {e}"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to fetch stats"
+        )
+
+async def save_challenges_by_user(
+    self,
+    user_id: str,
+    challenges: list
+# pyrefly: ignore [parse-error]
+):
+    
