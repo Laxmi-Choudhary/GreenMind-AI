@@ -6,8 +6,7 @@ from typing import List, Dict, Any
 from fastapi import (
     APIRouter,
     Depends,
-    HTTPException,
-    status
+    HTTPException
 )
 from pydantic import BaseModel, Field
 
@@ -29,56 +28,47 @@ CHALLENGE_TEMPLATES = [
     {
         "id": "no_plastic",
         "title": "No Plastic Week",
-        "description":
-            "Avoid using single-use plastic items for 7 days.",
+        "description": "Avoid using single-use plastic items for 7 days.",
         "category": "waste",
         "points": 150,
         "target": 7,
         "progress": 0,
         "status": "active"
     },
-
     {
         "id": "walk_to_work",
         "title": "Walk To Work",
-        "description":
-            "Walk or cycle for commuting at least 3 days.",
+        "description": "Walk or cycle for commuting at least 3 days.",
         "category": "travel",
         "points": 100,
         "target": 3,
         "progress": 0,
         "status": "active"
     },
-
     {
         "id": "save_electricity",
         "title": "Save Electricity",
-        "description":
-            "Keep electricity consumption under target for 5 days.",
+        "description": "Keep electricity consumption under target for 5 days.",
         "category": "energy",
         "points": 120,
         "target": 5,
         "progress": 0,
         "status": "active"
     },
-
     {
         "id": "sustainable_shopping",
         "title": "Sustainable Shopping",
-        "description":
-            "Avoid unnecessary online shopping for 2 weeks.",
+        "description": "Avoid unnecessary online shopping for 2 weeks.",
         "category": "shopping",
         "points": 100,
         "target": 2,
         "progress": 0,
         "status": "active"
     },
-
     {
         "id": "vegan_marathon",
         "title": "Vegan for 3 Days",
-        "description":
-            "Eat fully vegan meals for 3 consecutive days.",
+        "description": "Eat fully vegan meals for 3 consecutive days.",
         "category": "food",
         "points": 80,
         "target": 3,
@@ -86,7 +76,6 @@ CHALLENGE_TEMPLATES = [
         "status": "active"
     }
 ]
-
 
 # ==========================================================
 # PYDANTIC MODELS
@@ -120,15 +109,14 @@ async def initialize_user_challenges(
     challenges = copy.deepcopy(CHALLENGE_TEMPLATES)
 
     for challenge in challenges:
-        challenge["created_at"] = (
-            datetime.utcnow().isoformat()
-        )
+        challenge["created_at"] = datetime.utcnow().isoformat()
         challenge["completed_at"] = None
 
-    await db_manager.save_challenges_by_user(
-        user_id,
-        challenges
-    )
+    if hasattr(db_manager, "save_challenges_by_user"):
+        await db_manager.save_challenges_by_user(
+            user_id,
+            challenges
+        )
 
     return challenges
 
@@ -137,11 +125,12 @@ async def get_user_challenges(
     user_id: str
 ) -> List[Dict[str, Any]]:
 
-    challenges = (
-        await db_manager.get_challenges_by_user(
+    challenges = []
+
+    if hasattr(db_manager, "get_challenges_by_user"):
+        challenges = await db_manager.get_challenges_by_user(
             user_id
         )
-    )
 
     if not challenges:
         challenges = await initialize_user_challenges(
@@ -159,21 +148,18 @@ async def get_user_challenges(
 async def get_challenges(
     current_user: dict = Depends(get_current_user)
 ):
-
     try:
 
         user_id = current_user["id"]
 
-        challenges = await get_user_challenges(
-            user_id
-        )
+        challenges = await get_user_challenges(user_id)
 
         total = len(challenges)
 
         completed = len(
             [
                 c for c in challenges
-                if c["status"] == "completed"
+                if c.get("status") == "completed"
             ]
         )
 
@@ -208,14 +194,11 @@ async def get_challenge(
     challenge_id: str,
     current_user: dict = Depends(get_current_user)
 ):
-
     try:
 
         user_id = current_user["id"]
 
-        challenges = await get_user_challenges(
-            user_id
-        )
+        challenges = await get_user_challenges(user_id)
 
         challenge = next(
             (
@@ -258,14 +241,11 @@ async def update_challenge_progress(
     payload: ProgressInput,
     current_user: dict = Depends(get_current_user)
 ):
-
     try:
 
         user_id = current_user["id"]
 
-        challenges = await get_user_challenges(
-            user_id
-        )
+        challenges = await get_user_challenges(user_id)
 
         challenge = next(
             (
@@ -276,34 +256,26 @@ async def update_challenge_progress(
         )
 
         if challenge is None:
-
             raise HTTPException(
                 status_code=404,
                 detail="Challenge not found"
             )
 
         if challenge["status"] == "completed":
-
             return {
                 "success": True,
-                "message":
-                    "Challenge already completed",
+                "message": "Challenge already completed",
                 "challenge": challenge
             }
 
         challenge["progress"] = min(
             challenge["target"],
-            challenge["progress"] +
-            payload.increment
+            challenge["progress"] + payload.increment
         )
 
         messages = []
         points_earned = 0
         level_up = False
-
-        # ==================================================
-        # COMPLETION LOGIC
-        # ==================================================
 
         if challenge["progress"] >= challenge["target"]:
 
@@ -336,12 +308,10 @@ async def update_challenge_progress(
             )
 
             if earned_badge not in badges:
-
                 badges.add(earned_badge)
 
                 messages.append(
-                    f"New badge unlocked: "
-                    f"{earned_badge}"
+                    f"New badge unlocked: {earned_badge}"
                 )
 
             updated_points = (
@@ -349,29 +319,24 @@ async def update_challenge_progress(
                 + points_earned
             )
 
-            updated_level = (
-                1 + (updated_points // 100)
-            )
+            updated_level = 1 + (updated_points // 100)
 
-            if (
-                updated_level >
-                current_user.get("level", 1)
-            ):
+            if updated_level > current_user.get("level", 1):
                 level_up = True
 
                 messages.append(
-                    f"You reached level "
-                    f"{updated_level}"
+                    f"You reached level {updated_level}"
                 )
 
-            await db_manager.update_user(
-                user_id,
-                {
-                    "points": updated_points,
-                    "level": updated_level,
-                    "badges": list(badges)
-                }
-            )
+            if hasattr(db_manager, "update_user"):
+                await db_manager.update_user(
+                    user_id,
+                    {
+                        "points": updated_points,
+                        "level": updated_level,
+                        "badges": list(badges)
+                    }
+                )
 
         else:
 
@@ -381,40 +346,31 @@ async def update_challenge_progress(
                 f"{challenge['target']}"
             )
 
-        # Save challenges
+        if hasattr(db_manager, "save_challenges_by_user"):
+            await db_manager.save_challenges_by_user(
+                user_id,
+                challenges
+            )
 
-        await db_manager.save_challenges_by_user(
-            user_id,
-            challenges
-        )
+        updated_user = current_user
 
-        updated_user = (
-            await db_manager.get_user_by_id(
+        if hasattr(db_manager, "get_user_by_id"):
+            user = await db_manager.get_user_by_id(
                 user_id
             )
-        )
+            if user:
+                updated_user = user
 
         return {
-
             "success": True,
-
             "challenge": challenge,
-
             "points_earned": points_earned,
-
             "level_up": level_up,
-
             "user": {
-                "points":
-                    updated_user.get("points", 0),
-
-                "level":
-                    updated_user.get("level", 1),
-
-                "badges":
-                    updated_user.get("badges", [])
+                "points": updated_user.get("points", 0),
+                "level": updated_user.get("level", 1),
+                "badges": updated_user.get("badges", [])
             },
-
             "messages": messages
         }
 
@@ -441,7 +397,6 @@ async def update_challenge_progress(
 async def reset_challenges(
     current_user: dict = Depends(get_current_user)
 ):
-
     try:
 
         user_id = current_user["id"]
@@ -456,15 +411,15 @@ async def reset_challenges(
             )
             challenge["completed_at"] = None
 
-        await db_manager.save_challenges_by_user(
-            user_id,
-            challenges
-        )
+        if hasattr(db_manager, "save_challenges_by_user"):
+            await db_manager.save_challenges_by_user(
+                user_id,
+                challenges
+            )
 
         return {
             "success": True,
-            "message":
-                "Challenges reset successfully",
+            "message": "Challenges reset successfully",
             "challenges": challenges
         }
 
@@ -481,14 +436,13 @@ async def reset_challenges(
 
 
 # ==========================================================
-# USER CHALLENGE STATS
+# CHALLENGE STATS
 # ==========================================================
 
 @router.get("/stats/summary")
 async def challenge_stats(
     current_user: dict = Depends(get_current_user)
 ):
-
     try:
 
         user_id = current_user["id"]
@@ -502,7 +456,7 @@ async def challenge_stats(
         completed = len(
             [
                 c for c in challenges
-                if c["status"] == "completed"
+                if c.get("status") == "completed"
             ]
         )
 
@@ -529,11 +483,3 @@ async def challenge_stats(
             status_code=500,
             detail="Failed to fetch stats"
         )
-
-async def save_challenges_by_user(
-    self,
-    user_id: str,
-    challenges: list
-# pyrefly: ignore [parse-error]
-):
-    
